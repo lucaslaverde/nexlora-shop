@@ -10,7 +10,9 @@ export function initialState() {
     versions: [],
   }));
   return {
-    settings: structuredClone(seed.seedSettings),
+    settings: { ...structuredClone(seed.seedSettings), checkout: structuredClone(seed.defaultCheckout) },
+    community: structuredClone(seed.seedCommunity),
+    abStats: {},
     theme: structuredClone(seed.defaultTheme),
     products: structuredClone(seed.seedProducts),
     collections: structuredClone(seed.seedCollections),
@@ -29,9 +31,29 @@ export function initialState() {
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw) return { ...initialState(), ...JSON.parse(raw) };
+    if (raw) {
+      const st = { ...initialState(), ...JSON.parse(raw) };
+      // Datos guardados por una versión anterior: completar lo nuevo sin borrar nada.
+      if (!st.settings.checkout) st.settings.checkout = structuredClone(seed.defaultCheckout);
+      return promoteScheduled(st);
+    }
   } catch { /* sin almacenamiento */ }
   return initialState();
+}
+
+// Publicación programada: si ya llegó la hora, la versión programada pasa a estar en vivo.
+export function promoteScheduled(st) {
+  const now = Date.now();
+  let changed = false;
+  for (const p of st.pages) {
+    if (p.scheduled && new Date(p.scheduled.at).getTime() <= now) {
+      if (p.published) p.versions = [{ at: p.published.at, sections: p.published.sections }, ...(p.versions || [])].slice(0, 15);
+      p.published = { sections: p.scheduled.sections, at: p.scheduled.at };
+      delete p.scheduled;
+      changed = true;
+    }
+  }
+  return changed ? { ...st } : st;
 }
 
 const Ctx = createContext(null);
@@ -46,6 +68,14 @@ export function StoreProvider({ children }) {
   // mutate(fn): recibe una copia del estado y la modifica directamente.
   const mutate = useCallback(fn => setState(prev => { const next = structuredClone(prev); fn(next); return next; }), []);
   const reset = useCallback(() => setState(initialState()), []);
+  // Revisa cada 20 s si alguna publicación programada ya debe salir en vivo.
+  useEffect(() => {
+    const t = setInterval(() => setState(prev => {
+      if (!prev.pages.some(p => p.scheduled && new Date(p.scheduled.at).getTime() <= Date.now())) return prev;
+      return promoteScheduled(structuredClone(prev));
+    }), 20000);
+    return () => clearInterval(t);
+  }, []);
   const value = useMemo(() => ({ state, mutate, reset, setState }), [state, mutate, reset]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

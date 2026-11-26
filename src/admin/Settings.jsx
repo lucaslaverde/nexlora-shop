@@ -1,5 +1,5 @@
 import React from 'react';
-import { Store, CreditCard, Truck, Receipt, Globe, Languages, Users, Bell, FileText, Gem, Plus, Trash2, RotateCcw } from 'lucide-react';
+import { Store, CreditCard, Truck, Receipt, Globe, Languages, Users, Bell, FileText, Gem, Plus, Trash2, RotateCcw, ShoppingCart } from 'lucide-react';
 import { useStore, money } from '../store.jsx';
 import { uid } from '../seed.js';
 import { Card, PageHead, Field, Toggle, Btn, Soon } from '../ui.jsx';
@@ -7,6 +7,7 @@ import { Card, PageHead, Field, Toggle, Btn, Soon } from '../ui.jsx';
 const TABS = [
   { id: 'general', label: 'General', icon: Store },
   { id: 'pagos', label: 'Pagos', icon: CreditCard },
+  { id: 'checkout', label: 'Checkout', icon: ShoppingCart },
   { id: 'envios', label: 'Envíos y entregas', icon: Truck },
   { id: 'impuestos', label: 'Impuestos', icon: Receipt },
   { id: 'dominios', label: 'Dominios', icon: Globe },
@@ -43,6 +44,26 @@ export default function SettingsPage({ tab }) {
         <Soon icon={CreditCard} title="Tarjetas, PSE, Nequi, PayPal" text="Se activan conectando una pasarela desde Apps e integraciones." />
       </Card>
     ); break;
+    case 'checkout': {
+      const ck = S.checkout || {};
+      const setCk = (k, v) => mutate(st => { st.settings.checkout = { ...(st.settings.checkout || {}), [k]: v }; });
+      body = (
+        <>
+          <Card title="Checkout a tu medida">
+            <p className="muted sm">En otras plataformas personalizar el checkout suele exigir el plan más caro. Aquí viene incluido para todos.</p>
+            <div className="row between setting-row"><div><b>Pedir por WhatsApp</b><p className="muted sm">Botón verde en el checkout: el pedido queda registrado en el panel y se abre el chat con el resumen listo.</p></div><Toggle checked={!!ck.whatsappOrder} onChange={v => setCk('whatsappOrder', v)} /></div>
+            <Field label="Número de WhatsApp de la tienda (con indicativo, solo números)"><input className="input" value={ck.whatsapp || ''} onChange={e => setCk('whatsapp', e.target.value.replace(/[^\d]/g, ''))} placeholder="573001234567" /></Field>
+            <div className="row between setting-row"><div><b>Teléfono obligatorio</b><p className="muted sm">Para coordinar la entrega.</p></div><Toggle checked={!!ck.requirePhone} onChange={v => setCk('requirePhone', v)} /></div>
+            <div className="row between setting-row"><div><b>Notas del pedido</b><p className="muted sm">El cliente puede dejar indicaciones (portería, horario, regalo…).</p></div><Toggle checked={!!ck.orderNotes} onChange={v => setCk('orderNotes', v)} /></div>
+            <Field label="Mensaje de confianza bajo el botón"><input className="input" value={ck.trustText || ''} onChange={e => setCk('trustText', e.target.value)} /></Field>
+            <Field label="Texto extra en la página de gracias"><input className="input" value={ck.thanksText || ''} onChange={e => setCk('thanksText', e.target.value)} /></Field>
+            <a className="link" href="#/tienda/checkout" target="_blank" rel="noreferrer">Ver el checkout →</a>
+          </Card>
+          <Soon icon={ShoppingCart} title="Campos personalizados y venta adicional en el checkout" text="Pide datos extra (NIT, fecha de entrega) y ofrece un producto más antes de pagar." />
+        </>
+      );
+      break;
+    }
     case 'envios': body = (
       <Card title="Tarifas de envío" actions={<Btn icon={Plus} onClick={() => mutate(st => st.settings.shippingRates.push({ id: uid('r'), name: 'Nueva tarifa', price: 10000, freeFrom: null }))}>Agregar tarifa</Btn>}>
         {S.shippingRates.map((r, i) => (

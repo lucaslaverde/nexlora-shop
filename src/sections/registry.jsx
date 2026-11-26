@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useStore, money } from '../store.jsx';
+import { CodeFrame, scanCode } from '../community/code.jsx';
 
 // ---------- Contextos ----------
 // EditCtx: si estamos en el editor, permite editar textos directamente sobre la vista previa.
@@ -271,8 +272,31 @@ function Footer({ s }) {
   );
 }
 
+// ---------- Código: propio o de la comunidad (siempre aislado) ----------
+// En el editor, una capa transparente encima del iframe permite seleccionar la sección con un clic.
+function Framed({ children }) {
+  const { editing } = useContext(EditCtx);
+  return <div className="sf-framed">{children}{editing && <div className="sf-frame-cover" />}</div>;
+}
+
+function CustomCode({ s }) {
+  const { state } = useStore();
+  const scan = scanCode(s);
+  return <Framed><CodeFrame code={s} theme={state.theme} height={s.height} blocked={scan.ok ? null : 'Este código no pasa la revisión de seguridad. Corrígelo en el panel derecho.'} /></Framed>;
+}
+
+function CommunityCode({ s }) {
+  const { state } = useStore();
+  const c = (state.community || []).find(x => x.id === s.codeId);
+  let blocked = null;
+  if (!c) blocked = 'Este código ya no existe en la comunidad.';
+  else if (c.status !== 'aprobado') blocked = 'Pendiente de verificación por el equipo de Nexlora.';
+  else if (!scanCode(c).ok) blocked = 'Bloqueado por el revisor de seguridad.';
+  return <Framed><CodeFrame code={c || {}} theme={state.theme} height={s.height || c?.height} blocked={blocked} /></Framed>;
+}
+
 // ---------- Registro ----------
-// Campos: text, textarea, image, color, select, number, range, toggle, link, items.
+// Campos: text, textarea, image, color, select, number, range, toggle, link, items, code.
 export const STYLE_FIELDS = [
   { key: '_bg', label: 'Fondo', type: 'color' },
   { key: '_color', label: 'Color de texto', type: 'color' },
@@ -336,6 +360,16 @@ export const SECTIONS = {
   'rich-text': { name: 'Texto enriquecido', cat: 'Contenido', C: RichText, fields: [{ key: 'title', label: 'Título', type: 'text' }, { key: 'text', label: 'Texto', type: 'textarea' }, { key: 'align', label: 'Alineación', type: 'select', options: ['izquierda', 'centro'] }], defaults: { title: 'Título', text: 'Escribe aquí tu contenido.', align: 'centro' } },
   video: { name: 'Video', cat: 'Contenido', C: Video, fields: [{ key: 'title', label: 'Título', type: 'text' }, { key: 'url', label: 'Enlace de YouTube', type: 'text' }], defaults: { title: 'Mira cómo funciona', url: '' } },
   footer: { name: 'Pie de página', cat: 'Pie', C: Footer, pad: [0, 0], fields: [{ key: 'text', label: 'Texto', type: 'text' }, { key: 'columns', label: 'Columnas', type: 'items', sub: [{ key: 'title', label: 'Título' }, { key: 'links', label: 'Enlaces (separados por coma)' }], blank: { title: 'Columna', links: 'Enlace 1, Enlace 2' } }], defaults: { text: 'Gracias por visitarnos.', columns: [] } },
+  'custom-code': {
+    name: 'Código propio (HTML + CSS)', cat: 'Avanzado', C: CustomCode, pad: [24, 24],
+    fields: [{ key: 'html', label: 'HTML', type: 'code' }, { key: 'css', label: 'CSS', type: 'code' }, { key: 'height', label: 'Alto mínimo (px)', type: 'range', min: 80, max: 900 }],
+    defaults: { html: '<div class="caja">\n  <h2>Hola 👋</h2>\n  <p>Escribe tu propio HTML y CSS. Usa var(--primario), var(--radio)…</p>\n</div>', css: '.caja{padding:32px;text-align:center;background:var(--superficie);border-radius:var(--radio)}\nh2{font-family:var(--fuente-titulos);color:var(--primario)}', height: 220 },
+  },
+  community: {
+    name: 'Código de la comunidad', cat: 'Comunidad', C: CommunityCode, pad: [24, 24], hidden: true,
+    fields: [{ key: 'height', label: 'Alto mínimo (px)', type: 'range', min: 80, max: 900 }],
+    defaults: { codeId: null, height: null },
+  },
 };
 
 // Plantillas de página completas: un clic y tienes la página armada.
@@ -348,10 +382,13 @@ export const PAGE_TEMPLATES = [
 ];
 
 // ---------- Renderizador ----------
-export function RenderSection({ section }) {
+// variant: 'a' | 'b' — en una prueba A/B la variante B usa sus propios ajustes.
+export const sectionSettings = (section, variant) => (variant === 'b' && section.ab?.b ? section.ab.b : section.settings);
+
+export function RenderSection({ section, variant }) {
   const def = SECTIONS[section.type];
   if (!def) return null;
-  const s = section.settings;
+  const s = sectionSettings(section, variant);
   const [pt, pb] = def.pad || [64, 64];
   const style = {
     background: s._bg || undefined,

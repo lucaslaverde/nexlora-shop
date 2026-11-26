@@ -37,6 +37,15 @@ La demo trae una tienda de prueba ficticia, **Café Aurora**, con productos, ped
 - Inicio, páginas, colecciones con orden, ficha de producto con cantidad y relacionados, carrito lateral con barra de envío gratis, checkout con códigos de descuento y página de gracias.
 - **Cada compra crea el pedido en el panel**, descuenta el stock y crea el cliente.
 
+## Fase 2: lo que Shopify no tiene
+
+- **Comunidad de código verificado.** Cualquiera envía una sección (HTML + CSS). Un revisor automático rechaza lo peligroso (scripts, eventos, `javascript:`, iframes, formularios, recursos http, `@import`) y el equipo de Nexlora aprueba el resto. Ya instalada, la sección corre en un iframe con sandbox **sin scripts** y con su propia CSP, así que no puede leer datos de la tienda ni de los clientes. Hay un probador que confirma que un `<script>` o un `onerror` que se colara no se ejecuta.
+- **Código propio en el editor**, con la misma revisión. Si un bloque no la pasa, la página no se publica.
+- **Pruebas A/B por sección sin programar.** Se crea la variante B y se edita en la vista previa. Cada visitante ve siempre la misma variante y se cuentan las vistas y los clics de cada una. Con un botón te quedas con la ganadora. (Shopify Rollouts exige programar un tema completo.)
+- **Publicación programada.** El borrador sale en vivo solo a la hora elegida, sin apps.
+- **Checkout personalizable incluido en todos los planes**: pedido por WhatsApp (queda registrado en el panel y abre el chat con el resumen), teléfono obligatorio, notas del pedido, mensaje de confianza y texto de gracias. (En Shopify, personalizar el checkout a fondo es de Shopify Plus.)
+- **Revisión de calidad de 0 a 100** antes de publicar. Revisa el SEO, el contraste (WCAG 4,5:1), los botones sin destino, las imágenes que faltan, el código inseguro, las cuentas regresivas vencidas y el número de secciones.
+
 ## Lo que queda listo para conectar (próximamente)
 
 Los lugares ya existen en el panel, en **Apps e integraciones** y en cada sección:

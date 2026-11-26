@@ -146,3 +146,10 @@
   .hide-m { display: none !important; }
 }
 @container (min-width: 641px) { .hide-d { display: none !important; } }
+
+/* Código aislado (propio o de la comunidad) */
+.sf-framed { position: relative; }
+.sf-frame-cover { position: absolute; inset: 0; cursor: pointer; }
+.sf-codeframe { background: transparent; }
+.sf .sf-btn.sf-wa { background: #25d366; border-color: #25d366; color: #0b2e17; }
+.sf-trust { font-size: 13px; color: var(--sf-muted); text-align: center; margin: 4px 0 0; }

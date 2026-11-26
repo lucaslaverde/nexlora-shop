@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, Monitor, Tablet, Smartphone, Undo2, Redo2, Eye, Plus, GripVertical, EyeOff, Copy, Trash2, ChevronUp, ChevronDown, Layers, Palette, History, Sparkles, X, Search, Settings2, Check, Maximize2 } from 'lucide-react';
+import { ArrowLeft, Monitor, Tablet, Smartphone, Undo2, Redo2, Eye, Plus, GripVertical, EyeOff, Copy, Trash2, ChevronUp, ChevronDown, Layers, Palette, History, Sparkles, X, Search, Settings2, Check, Maximize2, Clock, ShieldCheck } from 'lucide-react';
 import { useStore, fmtDate } from '../store.jsx';
-import { SECTIONS, STYLE_FIELDS, RenderSection, EditCtx, ShopCtx, themeVars } from '../sections/registry.jsx';
+import { SECTIONS, STYLE_FIELDS, RenderSection, EditCtx, ShopCtx, themeVars, sectionSettings } from '../sections/registry.jsx';
+import { scanCode, ScanReport, CodeFrame, CODE_VARS } from '../community/code.jsx';
+import { AbPanel, SchedulePop, AuditPanel } from './panels.jsx';
 import { themePresets, uid } from '../seed.js';
 import { newSection, isDirty, NewPageForm } from '../admin/OnlineStore.jsx';
 import { Toggle } from '../ui.jsx';
@@ -40,16 +42,20 @@ export default function Editor({ pageId }) {
   const undo = useCallback(() => { if (!past.current.length) return; future.current.push(structuredClone(sections)); const prev = past.current.pop(); mutate(st => { st.pages.find(p => p.id === pageId).sections = prev; }); lastKey.current = { k: null, t: 0 }; force(x => x + 1); }, [sections, pageId, mutate]);
   const redo = useCallback(() => { if (!future.current.length) return; past.current.push(structuredClone(sections)); const nx = future.current.pop(); mutate(st => { st.pages.find(p => p.id === pageId).sections = nx; }); force(x => x + 1); }, [sections, pageId, mutate]);
 
+  // Qué variante se está editando en cada sección con prueba A/B ('a' por defecto).
+  const [abEdit, setAbEdit] = useState({});
   const updateSetting = useCallback((id, path, value) => {
     const next = structuredClone(sections);
-    let o = next.find(s => s.id === id).settings;
+    const sec = next.find(s => s.id === id);
+    let o = abEdit[id] === 'b' && sec.ab?.b ? sec.ab.b : sec.settings;
     for (let i = 0; i < path.length - 1; i++) o = o[path[i]];
     o[path[path.length - 1]] = value;
-    commit(next, id + path.join('.'));
-  }, [sections, commit]);
+    commit(next, id + (abEdit[id] || 'a') + path.join('.'));
+  }, [sections, commit, abEdit]);
+  const setSection = useCallback((id, fn) => { const next = structuredClone(sections); fn(next.find(s => s.id === id)); commit(next); }, [sections, commit]);
 
   const ops = {
-    add: (type, at) => { const s = newSection(type); const next = [...sections]; next.splice(at ?? next.length, 0, s); commit(next); setSel(s.id); setAdding(null); setTimeout(() => scrollTo(s.id), 60); },
+    add: (type, at, settings) => { const s = newSection(type); if (settings) Object.assign(s.settings, settings); const next = [...sections]; next.splice(at ?? next.length, 0, s); commit(next); setSel(s.id); setAdding(null); setTimeout(() => scrollTo(s.id), 60); },
     move: (id, dir) => { const i = sections.findIndex(s => s.id === id); const j = i + dir; if (j < 0 || j >= sections.length) return; const next = [...sections]; [next[i], next[j]] = [next[j], next[i]]; commit(next); },
     moveTo: (from, to) => { if (from === to) return; const next = [...sections]; const [x] = next.splice(from, 1); next.splice(to > from ? to - 1 : to, 0, x); commit(next); },
     dup: id => { const i = sections.findIndex(s => s.id === id); const c = { ...structuredClone(sections[i]), id: uid('s') }; const next = [...sections]; next.splice(i + 1, 0, c); commit(next); setSel(c.id); },
@@ -57,7 +63,11 @@ export default function Editor({ pageId }) {
     del: id => { commit(sections.filter(s => s.id !== id)); if (sel === id) setSel(null); setToast('Sección eliminada · Ctrl+Z para deshacer'); },
   };
 
+  // Nada sale en vivo si un bloque de código propio no pasa la revisión de seguridad.
+  const unsafe = () => sections.find(s => s.type === 'custom-code' && !s.hidden && (!scanCode(s.settings).ok || (s.ab?.b && !scanCode(s.ab.b).ok)));
   const publish = () => {
+    const bad = unsafe();
+    if (bad) { setSel(bad.id); setToast('No se publicó: un bloque de código no pasa la revisión de seguridad.'); return; }
     mutate(st => {
       const p = st.pages.find(x => x.id === pageId);
       if (p.published) { p.versions = [{ at: p.published.at, sections: p.published.sections }, ...(p.versions || [])].slice(0, 15); }
@@ -65,6 +75,16 @@ export default function Editor({ pageId }) {
     });
     setToast('¡Publicado! Ya está en la tienda en vivo.');
   };
+  const [scheduling, setScheduling] = useState(false);
+  const schedule = at => {
+    const bad = unsafe();
+    if (bad) { setSel(bad.id); setToast('No se programó: un bloque de código no pasa la revisión de seguridad.'); return; }
+    if (!at || new Date(at).getTime() <= Date.now()) { setToast('Elige una fecha y hora en el futuro.'); return; }
+    mutate(st => { st.pages.find(x => x.id === pageId).scheduled = { at: new Date(at).toISOString(), sections: structuredClone(sections) }; });
+    setScheduling(false);
+    setToast('Programado. Saldrá en vivo solo, a la hora elegida.');
+  };
+  const unschedule = () => { mutate(st => { delete st.pages.find(x => x.id === pageId).scheduled; }); setToast('Programación cancelada.'); };
 
   // Atajos de teclado
   useEffect(() => {
@@ -103,7 +123,7 @@ export default function Editor({ pageId }) {
             {state.pages.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
             <option value="__new">+ Nueva página…</option>
           </select>
-          <span className={'ed-status ' + (dirty ? 'dirty' : '')}>{dirty ? 'Cambios sin publicar · guardado como borrador' : 'Publicado'}</span>
+          <span className={'ed-status ' + (dirty ? 'dirty' : '')}>{page.scheduled ? <>⏰ Programado: {fmtDate(page.scheduled.at)} · <button className="linkish" onClick={unschedule}>cancelar</button></> : dirty ? 'Cambios sin publicar · guardado como borrador' : 'Publicado'}</span>
         </div>
         <div className="row ed-devices">
           {Object.entries(DEVICES).map(([k, d]) => <button key={k} className={'icon-btn' + (device === k ? ' on' : '')} onClick={() => setDevice(k)} title={k}><d.icon size={18} /></button>)}
@@ -113,6 +133,10 @@ export default function Editor({ pageId }) {
           <button className="icon-btn" onClick={undo} disabled={!past.current.length} title="Deshacer (Ctrl+Z)"><Undo2 size={18} /></button>
           <button className="icon-btn" onClick={redo} disabled={!future.current.length} title="Rehacer (Ctrl+Shift+Z)"><Redo2 size={18} /></button>
           <a className="btn" href={'#/vista-previa' + (page.kind === 'inicio' ? '' : '/p/' + page.slug)} target="_blank" rel="noreferrer"><Eye size={16} /><span className="hide-sm">Vista previa</span></a>
+          <div className="sched-wrap">
+            <button className="icon-btn" title="Programar publicación" onClick={() => setScheduling(!scheduling)}><Clock size={18} /></button>
+            {scheduling && <SchedulePop onSave={schedule} close={() => setScheduling(false)} />}
+          </div>
           <button className="btn primary" onClick={publish} disabled={!dirty && !!page.published}>{!dirty && page.published ? <><Check size={16} />Publicado</> : 'Publicar'}</button>
         </div>
       </header>
@@ -120,11 +144,12 @@ export default function Editor({ pageId }) {
       <div className="ed-body">
         <aside className={'ed-left' + (mobilePanel === 'izq' ? ' show' : '')}>
           <div className="ed-tabs">
-            {[['secciones', Layers, 'Secciones'], ['tema', Palette, 'Tema'], ['historial', History, 'Versiones'], ['ia', Sparkles, 'IA']].map(([k, I, l]) => <button key={k} className={left === k ? 'on' : ''} onClick={() => setLeft(k)} title={l}><I size={17} /><span>{l}</span></button>)}
+            {[['secciones', Layers, 'Secciones'], ['tema', Palette, 'Tema'], ['revision', ShieldCheck, 'Revisión'], ['historial', History, 'Versiones'], ['ia', Sparkles, 'IA']].map(([k, I, l]) => <button key={k} className={left === k ? 'on' : ''} onClick={() => setLeft(k)} title={l}><I size={17} /><span>{l}</span></button>)}
           </div>
           <div className="ed-left-body">
             {left === 'secciones' && <SectionList sections={sections} sel={sel} onSelect={id => { select(id); scrollTo(id); }} ops={ops} onAdd={() => setAdding(endIndex)} />}
             {left === 'tema' && <ThemePanel />}
+            {left === 'revision' && <AuditPanel page={page} onSelect={id => { select(id); scrollTo(id); }} />}
             {left === 'historial' && <Versions page={page} restore={v => { commit(structuredClone(v.sections)); setToast('Versión cargada en el borrador. Publica para aplicarla.'); }} />}
             {left === 'ia' && <AiPanel />}
             {left === 'nueva' && <div className="pad"><h4>Nueva página</h4><NewPageForm onDone={() => setLeft('secciones')} /></div>}
@@ -139,7 +164,7 @@ export default function Editor({ pageId }) {
                 <div className="sf" style={themeVars(state.theme)}>
                   {sections.map((s, i) => (
                     <div key={s.id} data-ed={s.id} className={'ed-sec' + (sel === s.id ? ' sel' : '') + (s.hidden ? ' is-hidden' : '')} onClick={e => { e.stopPropagation(); select(s.id); }}>
-                      <div className="ed-sec-tag">{SECTIONS[s.type]?.name}{s.hidden && ' (oculta)'}
+                      <div className="ed-sec-tag">{SECTIONS[s.type]?.name}{s.hidden && ' (oculta)'}{s.ab?.enabled && ` · A/B: editando ${(abEdit[s.id] || 'a').toUpperCase()}`}
                         <span className="ed-sec-tools" onClick={e => e.stopPropagation()}>
                           <button onClick={() => ops.move(s.id, -1)} title="Subir"><ChevronUp size={14} /></button>
                           <button onClick={() => ops.move(s.id, 1)} title="Bajar"><ChevronDown size={14} /></button>
@@ -149,7 +174,7 @@ export default function Editor({ pageId }) {
                         </span>
                       </div>
                       <button className="ed-insert" title="Agregar sección aquí" onClick={e => { e.stopPropagation(); setAdding(i + 1); }}><Plus size={14} /></button>
-                      <RenderSection section={s} />
+                      <RenderSection section={s} variant={abEdit[s.id]} />
                     </div>
                   ))}
                   {!sections.length && <div className="ed-empty"><h3>Página vacía</h3><button className="btn primary" onClick={() => setAdding(0)}><Plus size={16} />Agregar la primera sección</button></div>}
@@ -161,7 +186,8 @@ export default function Editor({ pageId }) {
         </div>
 
         <aside className={'ed-right' + (mobilePanel === 'der' ? ' show' : '')}>
-          {selected ? <Inspector key={selected.id} s={selected} onChange={(path, v) => updateSetting(selected.id, path, v)} ops={ops} close={() => setSel(null)} />
+          {selected ? <Inspector key={selected.id} s={selected} variant={abEdit[selected.id] || 'a'} setVariant={v => setAbEdit({ ...abEdit, [selected.id]: v })}
+              onChange={(path, v) => updateSetting(selected.id, path, v)} setSection={fn => setSection(selected.id, fn)} ops={ops} close={() => setSel(null)} />
             : <PageSettings page={page} />}
         </aside>
       </div>
@@ -172,7 +198,7 @@ export default function Editor({ pageId }) {
         <button className={mobilePanel === 'der' ? 'on' : ''} onClick={() => setMobilePanel(mobilePanel === 'der' ? null : 'der')}><Settings2 size={18} />Ajustes</button>
       </div>
 
-      {adding != null && <AddSection onPick={t => ops.add(t, adding)} close={() => setAdding(null)} />}
+      {adding != null && <AddSection onPick={(t, settings) => ops.add(t, adding, settings)} close={() => setAdding(null)} />}
       {toast && <div className="toast">{toast}</div>}
     </div>
   );
@@ -205,11 +231,14 @@ function SectionList({ sections, sel, onSelect, ops, onAdd }) {
 }
 
 function AddSection({ onPick, close }) {
+  const { state } = useStore();
   const [q, setQ] = useState('');
   const [cat, setCat] = useState('Todas');
-  const entries = Object.entries(SECTIONS);
-  const cats = ['Todas', ...new Set(entries.map(([, d]) => d.cat))];
-  const list = entries.filter(([, d]) => (cat === 'Todas' || d.cat === cat) && d.name.toLowerCase().includes(q.toLowerCase()));
+  const COM = 'Comunidad ✓';
+  const entries = Object.entries(SECTIONS).filter(([, d]) => !d.hidden);
+  const cats = ['Todas', ...new Set(entries.map(([, d]) => d.cat)), COM];
+  const list = cat === COM ? [] : entries.filter(([, d]) => (cat === 'Todas' || d.cat === cat) && d.name.toLowerCase().includes(q.toLowerCase()));
+  const verified = (state.community || []).filter(c => c.status === 'aprobado' && scanCode(c).ok && (cat === 'Todas' || cat === COM) && c.name.toLowerCase().includes(q.toLowerCase()));
   return (
     <div className="modal-bg" onClick={close}>
       <div className="modal" onClick={e => e.stopPropagation()}>
@@ -221,7 +250,14 @@ function AddSection({ onPick, close }) {
             <div className={'sec-thumb mini-' + k}><i /><i /><i /></div>
             <b>{d.name}</b><span className="muted sm">{d.cat}</span>
           </button>
-        ))}</div>
+        ))}
+          {verified.map(c => (
+            <button key={c.id} className="sec-card" onClick={() => onPick('community', { codeId: c.id, height: c.height })}>
+              <div className="sec-thumb code-thumb"><CodeFrame code={c} theme={state.theme} height={74} fixed /></div>
+              <b>{c.name}</b><span className="muted sm"><span className="verified">✓ Verificado</span> · {c.installs} usos</span>
+            </button>
+          ))}</div>
+        {cat === COM && <p className="muted sm" style={{ marginTop: 10 }}>Secciones creadas por la comunidad y revisadas por el equipo de Nexlora. Corren aisladas: no pueden ver tus datos ni los de tus clientes. <a className="link" href="#/comunidad">Enviar la tuya →</a></p>}
         <div className="soon-line"><Sparkles size={14} /> Próximamente: describe una sección y la IA la crea con tu marca.</div>
       </div>
     </div>
@@ -246,6 +282,7 @@ function FieldInput({ f, value, onChange }) {
       const imgs = [...new Set([...state.files.map(x => x.url), ...state.products.map(p => p.image)])].slice(0, 8);
       return <div className="img-field">{value ? <img src={value} alt="" /> : <div className="img-ph">Sin imagen</div>}<input className="input" value={value || ''} placeholder="URL de la imagen" onChange={e => onChange(e.target.value)} /><div className="img-pick">{imgs.map(u => <button key={u} onClick={() => onChange(u)}><img src={u} alt="" /></button>)}</div></div>;
     }
+    case 'code': return <textarea className="input code" rows={8} spellCheck={false} value={value || ''} onChange={e => onChange(e.target.value)} />;
     default: return <input className="input" value={value || ''} onChange={e => onChange(e.target.value)} />;
   }
 }
@@ -270,21 +307,34 @@ function ItemsField({ f, items = [], onChange }) {
   );
 }
 
-function Inspector({ s, onChange, ops, close }) {
+function Inspector({ s, variant, setVariant, onChange, setSection, ops, close }) {
+  const { state } = useStore();
   const def = SECTIONS[s.type];
   const [tab, setTab] = useState('contenido');
+  const cur = sectionSettings(s, variant);
+  const tabs = [['contenido', 'Contenido'], ['estilo', 'Estilo'], ['ab', 'A/B']];
+  const com = s.type === 'community' ? (state.community || []).find(c => c.id === s.settings.codeId) : null;
   return (
     <div className="insp">
-      <div className="insp-h"><div><span className="muted sm">Sección</span><h3>{def.name}</h3></div><button className="icon-btn" onClick={close}><X size={18} /></button></div>
-      <div className="seg"><button className={tab === 'contenido' ? 'on' : ''} onClick={() => setTab('contenido')}>Contenido</button><button className={tab === 'estilo' ? 'on' : ''} onClick={() => setTab('estilo')}>Estilo</button></div>
+      <div className="insp-h"><div><span className="muted sm">Sección{s.ab?.enabled ? ` · editando variante ${variant.toUpperCase()}` : ''}</span><h3>{def.name}</h3></div><button className="icon-btn" onClick={close}><X size={18} /></button></div>
+      <div className="seg three">{tabs.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{l}{k === 'ab' && s.ab?.enabled && ' ●'}</button>)}</div>
       <div className="insp-b">
-        {(tab === 'contenido' ? def.fields : STYLE_FIELDS).map(f => (
+        {tab !== 'ab' && s.ab?.enabled && (
+          <div className="ab-switch"><span>Editando:</span>{['a', 'b'].map(v => <button key={v} className={variant === v ? 'on' : ''} onClick={() => setVariant(v)}>Variante {v.toUpperCase()}</button>)}</div>
+        )}
+        {tab !== 'ab' && (tab === 'contenido' ? def.fields : STYLE_FIELDS).map(f => (
           <div key={f.key} className={'field' + (f.type === 'toggle' ? ' inline' : '')}>
             <span>{f.label}</span>
-            {f.type === 'items' ? <ItemsField f={f} items={s.settings[f.key]} onChange={v => onChange([f.key], v)} /> : <FieldInput f={f} value={s.settings[f.key]} onChange={v => onChange([f.key], v)} />}
+            {f.type === 'items' ? <ItemsField f={f} items={cur[f.key]} onChange={v => onChange([f.key], v)} /> : <FieldInput f={f} value={cur[f.key]} onChange={v => onChange([f.key], v)} />}
           </div>
         ))}
+        {tab === 'contenido' && s.type === 'custom-code' && <>
+          <ScanReport scan={scanCode(cur)} compact />
+          <p className="muted sm">Variables del tema: {CODE_VARS.join(', ')}. Corre aislado y sin JavaScript.</p>
+        </>}
+        {tab === 'contenido' && com && <div className="tip"><b>{com.name}</b> · por {com.author}<br />{com.status === 'aprobado' ? <span className="verified">✓ Verificado por {com.review?.by}</span> : `Estado: ${com.status}`}<br /><span className="muted sm">{com.description}</span></div>}
         {tab === 'estilo' && <p className="muted sm">Estos ajustes solo afectan a esta sección. Los colores y fuentes generales están en la pestaña Tema.</p>}
+        {tab === 'ab' && <AbPanel s={s} variant={variant} setVariant={setVariant} setSection={setSection} />}
       </div>
       <div className="insp-f">
         <button className="btn" onClick={() => ops.dup(s.id)}><Copy size={15} />Duplicar</button>

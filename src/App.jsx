@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Home, ShoppingBag, Tag, Users, Megaphone, Percent, FileText, BarChart3, Store, Puzzle, Settings, Search, ExternalLink, Bot, Bell } from 'lucide-react';
+import { Home, ShoppingBag, Tag, Users, Megaphone, Percent, FileText, BarChart3, Store, Puzzle, Settings, Search, ExternalLink, Bot, Bell, Code2 } from 'lucide-react';
 import { useStore } from './store.jsx';
 import Storefront from './storefront/Storefront.jsx';
 import Editor from './editor/Editor.jsx';
@@ -14,6 +14,7 @@ import Analytics from './admin/Analytics.jsx';
 import OnlineStore from './admin/OnlineStore.jsx';
 import Apps from './admin/Apps.jsx';
 import SettingsPage from './admin/Settings.jsx';
+import Community from './admin/Community.jsx';
 
 export function useHash() {
   const [h, setH] = useState(() => location.hash.slice(1) || '/');
@@ -33,6 +34,7 @@ const NAV = [
   { sep: 'Canales de venta' },
   { to: '/tienda-online', label: 'Tienda online', icon: Store },
   { sep: 'Más' },
+  { to: '/comunidad', label: 'Comunidad de código', icon: Code2, badge: 'community' },
   { to: '/apps', label: 'Apps e integraciones', icon: Puzzle },
 ];
 
@@ -50,6 +52,7 @@ function AdminShell({ path }) {
   const [menu, setMenu] = useState(false);
   const seg = path.split('/').filter(Boolean);
   const pending = state.orders.filter(o => o.fulfillment === 'sin preparar').length;
+  const review = (state.community || []).filter(c => c.status === 'pendiente').length;
   useEffect(() => setMenu(false), [path]);
 
   let page;
@@ -64,6 +67,7 @@ function AdminShell({ path }) {
     case 'analiticas': page = <Analytics />; break;
     case 'tienda-online': page = <OnlineStore sub={seg[1]} />; break;
     case 'apps': page = <Apps />; break;
+    case 'comunidad': page = <Community sub={seg[1]} />; break;
     case 'configuracion': page = <SettingsPage tab={seg[1] || 'general'} />; break;
     default: page = <Dashboard />;
   }
@@ -86,7 +90,7 @@ function AdminShell({ path }) {
         <div className="store-pill"><b>{state.settings.storeName}</b><span>Plan Pro · prueba</span></div>
         <nav>
           {NAV.map((n, i) => n.sep ? <div key={i} className="nav-sep">{n.sep}</div> : (
-            <a key={n.to} href={'#' + n.to} className={active(n.to) ? 'on' : ''}><n.icon size={18} />{n.label}{n.badge && pending > 0 && <em>{pending}</em>}</a>
+            <a key={n.to} href={'#' + n.to} className={active(n.to) ? 'on' : ''}><n.icon size={18} />{n.label}{n.badge === 'orders' && pending > 0 && <em>{pending}</em>}{n.badge === 'community' && review > 0 && <em>{review}</em>}</a>
           ))}
         </nav>
         <a href="#/configuracion" className={'nav-bottom' + (active('/configuracion') ? ' on' : '')}><Settings size={18} />Configuración</a>

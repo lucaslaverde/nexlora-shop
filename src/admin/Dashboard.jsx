@@ -50,6 +50,16 @@ export default function Dashboard() {
   return (
     <div className="page">
       <PageHead title={`Hola 👋 Así va ${settings.storeName}`} subtitle="Resumen de los últimos 14 días (datos de la tienda de prueba)" actions={<><LinkBtn href="#/tienda" target="_blank">Ver tienda</LinkBtn><LinkBtn variant="primary" icon={Paintbrush} href="#/editor/home">Editar página</LinkBtn></>} />
+      <Card title="Lo que Nexlora tiene y Shopify no" actions={<Badge tone="purple">Nuevo</Badge>}>
+        <div className="diff">
+          <a href="#/comunidad"><b>🧩 Comunidad de código verificado</b><span>Cualquiera crea secciones, nosotros las revisamos y corren aisladas.</span></a>
+          <a href="#/editor/home"><b>🧪 Pruebas A/B por sección</b><span>Sin programar un tema entero: pestaña A/B en cualquier sección.</span></a>
+          <a href="#/editor/home"><b>⏰ Publicación programada</b><span>Deja lista la oferta y sale sola a la hora exacta. Sin apps.</span></a>
+          <a href="#/configuracion/checkout"><b>💬 Checkout libre y pedido por WhatsApp</b><span>Incluido en todos los planes.</span></a>
+          <a href="#/editor/home"><b>✅ Revisión de calidad 0-100</b><span>SEO, contraste, enlaces rotos y seguridad antes de publicar.</span></a>
+          <a href="#/editor/home"><b>✍️ Edición directa sobre la página</b><span>Haces clic en el texto y escribes.</span></a>
+        </div>
+      </Card>
       <div className="kpis">
         <div className="kpi"><span>Ventas totales</span><b>{money(total, settings)}</b><small className="up">Datos de prueba</small></div>
         <div className="kpi"><span>Pedidos</span><b>{orders.length}</b><small>{paid.length} pagados</small></div>

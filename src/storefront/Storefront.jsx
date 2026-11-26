@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useStore, money } from '../store.jsx';
 import { RenderSection, ShopCtx, ProductCard, themeVars } from '../sections/registry.jsx';
 import { uid } from '../seed.js';
@@ -33,10 +33,10 @@ export default function Storefront({ path, preview }) {
 
   const parts = path.split('/').filter(Boolean);
   let body;
-  if (!parts.length) body = sectionsOf(home).filter(s => !s.hidden).map(s => <RenderSection key={s.id} section={s} />);
+  if (!parts.length) body = sectionsOf(home).filter(s => !s.hidden).map(s => <LiveSection key={s.id} section={s} />);
   else if (parts[0] === 'p') {
     const page = state.pages.find(p => p.slug === parts[1]);
-    body = page ? sectionsOf(page).filter(s => !s.hidden).map(s => <RenderSection key={s.id} section={s} />) : <NotFound />;
+    body = page ? sectionsOf(page).filter(s => !s.hidden).map(s => <LiveSection key={s.id} section={s} />) : <NotFound />;
   } else {
     let inner;
     if (parts[0] === 'producto') inner = <ProductPage slug={parts[1]} add={add} />;
@@ -165,14 +165,26 @@ function Checkout({ lines, subtotal, onDone }) {
     if (d.limit && d.uses >= d.limit) return setErr('Este código ya se agotó');
     setErr(''); setApplied(d);
   };
+  const ck = state.settings.checkout || {};
+  const viaWhatsapp = useRef(false);
   const submit = e => {
     e.preventDefault();
     if (!lines.length) return;
-    const number = 1000 + state.orders.length + 1 + Math.floor(Math.random() * 5);
+    const wa = viaWhatsapp.current;
+    viaWhatsapp.current = false;
+    const number = Math.max(1000, ...state.orders.map(o => o.number)) + 1;
+    if (wa) {
+      // Pedido por WhatsApp: se registra en el panel y se abre el chat con el resumen listo para enviar.
+      const S = state.settings;
+      const msg = [`Hola ${S.storeName}, quiero hacer el pedido #${number}:`, ...lines.map(l => `• ${l.qty} × ${l.p.title} — ${money(l.p.price * l.qty, S)}`),
+        discount ? `Descuento ${applied.code}: −${money(discount, S)}` : '', `Envío: ${shipping ? money(shipping, S) : 'gratis'}`, `Total: ${money(total, S)}`,
+        `A nombre de ${f.name}, ${f.address}, ${f.city}.`, f.notes ? `Nota: ${f.notes}` : ''].filter(Boolean).join('\n');
+      window.open(`https://wa.me/${(ck.whatsapp || '').replace(/\D/g, '')}?text=${encodeURIComponent(msg)}`, '_blank', 'noopener');
+    }
     mutate(st => {
       let c = st.customers.find(x => x.email.toLowerCase() === f.email.toLowerCase());
       if (!c) { c = { id: uid('c'), name: f.name, email: f.email, phone: f.phone, city: f.city, tags: [], marketing: false }; st.customers.push(c); }
-      st.orders.push({ id: uid('o'), number, customerId: c.id, items: lines.map(l => ({ productId: l.p.id, title: l.p.title, price: l.p.price, qty: l.qty, image: l.p.image })), subtotal, shipping, discount, total, payment: 'pendiente', fulfillment: 'sin preparar', channel: 'Tienda online', createdAt: new Date().toISOString(), notes: `Pago: ${f.pay}. Dirección: ${f.address}, ${f.city}`, code: applied?.code || '' });
+      st.orders.push({ id: uid('o'), number, customerId: c.id, items: lines.map(l => ({ productId: l.p.id, title: l.p.title, price: l.p.price, qty: l.qty, image: l.p.image })), subtotal, shipping, discount, total, payment: 'pendiente', fulfillment: 'sin preparar', channel: wa ? 'WhatsApp' : 'Tienda online', createdAt: new Date().toISOString(), notes: `Pago: ${wa ? 'acordar por WhatsApp' : f.pay}. Dirección: ${f.address}, ${f.city}${f.notes ? '. Nota del cliente: ' + f.notes : ''}`, code: applied?.code || '' });
       lines.forEach(l => { const p = st.products.find(x => x.id === l.p.id); if (p) p.stock = Math.max(0, p.stock - l.qty); });
       if (applied) { const d = st.discounts.find(x => x.id === applied.id); if (d) d.uses++; }
     });
@@ -188,7 +200,7 @@ function Checkout({ lines, subtotal, onDone }) {
         <h3>Contacto</h3>
         <input required placeholder="Nombre completo" value={f.name} onChange={set('name')} />
         <input required type="email" placeholder="Correo" value={f.email} onChange={set('email')} />
-        <input placeholder="Teléfono / WhatsApp" value={f.phone} onChange={set('phone')} />
+        <input required={!!ck.requirePhone} placeholder={'Teléfono / WhatsApp' + (ck.requirePhone ? '' : ' (opcional)')} value={f.phone} onChange={set('phone')} />
         <h3>Entrega</h3>
         <input required placeholder="Dirección" value={f.address} onChange={set('address')} />
         <input required placeholder="Ciudad" value={f.city} onChange={set('city')} />
@@ -199,7 +211,10 @@ function Checkout({ lines, subtotal, onDone }) {
           <option value="transferencia">Transferencia bancaria</option>
           <option value="tarjeta" disabled>Tarjeta (se activa al conectar una pasarela en Apps)</option>
         </select>
+        {ck.orderNotes && <textarea placeholder="Notas para el pedido (opcional)" value={f.notes || ''} onChange={set('notes')} rows={2} style={{ padding: '12px 14px', borderRadius: 'var(--sf-radius)', border: '1px solid rgba(127,127,127,.4)', background: 'var(--sf-surface)', color: 'inherit', font: 'inherit' }} />}
         <button className="sf-btn">Confirmar pedido · {money(total, state.settings)}</button>
+        {ck.whatsappOrder && ck.whatsapp && <button type="submit" className="sf-btn sf-wa" onClick={() => { viaWhatsapp.current = true; }}>Pedir por WhatsApp</button>}
+        {ck.trustText && <p className="sf-trust">{ck.trustText}</p>}
       </div>
       <div className="sf-box">
         {lines.map(l => <div key={l.productId} className="sf-line"><img src={l.p.image} alt="" /><div style={{ fontSize: 14 }}>{l.p.title} × {l.qty}</div><b>{money(l.p.price * l.qty, state.settings)}</b></div>)}
@@ -217,5 +232,34 @@ function Checkout({ lines, subtotal, onDone }) {
 }
 
 function Thanks({ number }) {
-  return <div className="center" style={{ padding: '100px 0' }}><div style={{ fontSize: 56 }}>✓</div><h1 className="sf-h2">¡Gracias por tu compra!</h1><p className="sf-muted">Tu pedido #{number} fue recibido. Ya aparece en el panel, en Pedidos.</p><a className="sf-btn" href="#/tienda">Seguir comprando</a></div>;
+  const { state } = useStore();
+  const extra = state.settings.checkout?.thanksText;
+  return <div className="center" style={{ padding: '100px 0' }}><div style={{ fontSize: 56 }}>✓</div><h1 className="sf-h2">¡Gracias por tu compra!</h1><p className="sf-muted">Tu pedido #{number} fue recibido. Ya aparece en el panel, en Pedidos.{extra ? ' ' + extra : ''}</p><a className="sf-btn" href="#/tienda">Seguir comprando</a></div>;
+}
+
+// Sección en vivo: si tiene prueba A/B, cada visitante ve siempre la misma variante
+// y se cuentan vistas y clics de cada una.
+const abBucket = id => {
+  try {
+    const k = 'nx-ab-' + id;
+    let v = localStorage.getItem(k);
+    if (v !== 'a' && v !== 'b') { v = Math.random() < 0.5 ? 'a' : 'b'; localStorage.setItem(k, v); }
+    return v;
+  } catch { return 'a'; }
+};
+function LiveSection({ section }) {
+  const { mutate } = useStore();
+  const testing = !!section.ab?.enabled;
+  const [variant] = useState(() => (testing ? abBucket(section.id) : 'a'));
+  const count = kind => mutate(st => {
+    const x = (st.abStats ||= {})[section.id] ||= { a: { v: 0, c: 0 }, b: { v: 0, c: 0 } };
+    x[variant][kind]++;
+  });
+  useEffect(() => {
+    if (!testing) return;
+    try { const k = 'nx-ab-seen-' + section.id; if (sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1'); } catch { /* */ }
+    count('v');
+  }, [testing, section.id]);
+  if (!testing) return <RenderSection section={section} />;
+  return <div style={{ display: 'contents' }} onClickCapture={e => { if (e.target.closest('a,button')) count('c'); }}><RenderSection section={section} variant={variant} /></div>;
 }
