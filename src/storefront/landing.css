@@ -1,0 +1,35 @@
+/* Secciones de landing (patrones de las piezas a medida: Matcha Latte, Tiendas, FAQ de POP KIDS) */
+.sf-promo-tiers { display: flex; justify-content: center; align-items: flex-end; gap: 12px; margin: 26px auto 22px; flex-wrap: wrap; }
+.sf-promo-tier { width: 150px; border-radius: var(--sf-radius); background: var(--sf-surface); border: 1.5px solid rgba(127,127,127,.25); padding: 18px 12px; display: grid; gap: 4px; }
+.sf-promo-tier b { font-family: var(--sf-hfont); font-size: 40px; line-height: 1; color: var(--sf-primary); }
+.sf-promo-tier span { color: var(--sf-muted); font-size: 14px; }
+.sf-promo-tier.lvl-2 { padding-top: 30px; }
+.sf-promo-tier.lvl-3 { padding-top: 44px; background: var(--sf-primary); border-color: var(--sf-primary); }
+.sf-promo-tier.lvl-3 b, .sf-promo-tier.lvl-3 span { color: #fff; }
+.sf-count.small div { padding: 10px 12px; min-width: 64px; }
+.sf-count.small b { font-size: 26px; }
+.sf-pyramid { display: grid; gap: 10px; justify-items: center; margin-top: 20px; }
+.sf-pyr-level { width: var(--w); background: var(--sf-surface); border-radius: var(--sf-radius); padding: 16px 18px; display: grid; gap: 8px; }
+.sf-pyr-k { text-transform: uppercase; letter-spacing: .2em; font-size: 12px; color: var(--sf-primary); font-weight: 700; }
+.sf-pyr-notes { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.sf-pyr-notes span { border: 1px solid rgba(127,127,127,.35); border-radius: 99px; padding: 4px 12px; font-size: 14px; }
+.sf-steps { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 18px; counter-reset: s; }
+.sf-steps li { position: relative; padding: 24px; background: var(--sf-surface); border-radius: var(--sf-radius); }
+.sf-step-n { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: var(--sf-primary); color: #fff; font-weight: 700; margin-bottom: 8px; }
+.sf-store { display: grid; grid-template-columns: minmax(260px, 42%) 1fr; overflow: hidden; border-radius: var(--sf-radius); background: #171615; color: #f7f3ed; }
+.sf-store-img { width: 100%; height: 100%; min-height: 340px; object-fit: cover; }
+.sf-store-txt { padding: clamp(24px, 5cqi, 56px); display: grid; align-content: center; gap: 10px; }
+.sf-store-txt .sf-eyebrow { color: #ae9d80; }
+.sf-store-hours { white-space: pre-line; color: #c8bfb3; }
+.sf-store .sf-btn.ghost { color: #f7f3ed; }
+.sf-faq-cat h3 { text-transform: uppercase; letter-spacing: .12em; font-size: 14px; margin: 34px 0 6px; }
+.sf-faq-d { border-top: 1px solid rgba(127,127,127,.3); }
+.sf-faq-d:last-child { border-bottom: 1px solid rgba(127,127,127,.3); }
+.sf-faq-d summary { cursor: pointer; padding: 18px 30px 18px 0; list-style: none; position: relative; font-weight: 500; }
+.sf-faq-d summary::-webkit-details-marker { display: none; }
+.sf-faq-d summary::after { content: '+'; position: absolute; right: 6px; top: 50%; transform: translateY(-50%); font-size: 20px; }
+.sf-faq-d[open] summary::after { content: '−'; }
+.sf-faq-d p { padding-bottom: 16px; margin: 0; }
+.sf-game-inline { max-width: 440px; margin: 0 auto; }
+.sf-game-inline .gm-card { box-shadow: 0 10px 40px rgba(0,0,0,.12); animation: none; }
+@container (max-width: 640px) { .sf-store { grid-template-columns: 1fr; } .sf-store-img { min-height: 220px; } .sf-promo-tier { width: 30%; min-width: 90px; } .sf-promo-tier b { font-size: 30px; } .sf-pyr-level { width: 100%; } }

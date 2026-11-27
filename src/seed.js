@@ -106,7 +106,7 @@ export const seedPages = [
 ];
 
 export const seedMenus = [
-  { id: 'principal', title: 'Menú principal', items: [{ label: 'Inicio', link: '#/tienda' }, { label: 'Cafés', link: '#/tienda/coleccion/cafes' }, { label: 'Accesorios', link: '#/tienda/coleccion/accesorios' }, { label: 'Nosotros', link: '#/tienda/p/nosotros' }] },
+  { id: 'principal', title: 'Menú principal', items: [{ label: 'Inicio', link: '#/tienda' }, { label: 'Preventa 🔥', link: '#/tienda/p/preventa' }, { label: 'Cafés', link: '#/tienda/coleccion/cafes' }, { label: 'Accesorios', link: '#/tienda/coleccion/accesorios' }, { label: 'Nosotros', link: '#/tienda/p/nosotros' }] },
 ];
 
 export const seedSettings = {

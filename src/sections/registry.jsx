@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useStore, money } from '../store.jsx';
 import { CodeFrame, scanCode } from '../community/code.jsx';
+import { productTier, liveTierDiscounts } from '../commerce/pricing.js';
+import { GamePlayer } from '../games/GameHost.jsx';
 
 // ---------- Contextos ----------
 // EditCtx: si estamos en el editor, permite editar textos directamente sobre la vista previa.
@@ -84,15 +86,26 @@ function Hero({ s }) {
 export function ProductCard({ p }) {
   const { state } = useStore();
   const shop = useContext(ShopCtx);
+  // Con descuento escalonado vivo se muestra el precio con el escalón 1 y la meta máxima.
+  // No se usa a la vez el precio de comparación: así nunca se ven dos descuentos sumados.
+  const tier = productTier(state, p, shop.qtyOf ? shop.qtyOf(p.id) : 0);
+  const showCompare = !tier && p.compareAt > p.price;
   return (
     <div className="sf-card">
       <a href={'#/tienda/producto/' + p.slug} className="sf-card-img">
         <Img src={p.image} alt={p.title} />
-        {p.compareAt > p.price && <span className="sf-badge">-{Math.round((1 - p.price / p.compareAt) * 100)}%</span>}
+        {tier && <span className="sf-badge">Hasta -{tier.best}%</span>}
+        {showCompare && <span className="sf-badge">-{Math.round((1 - p.price / p.compareAt) * 100)}%</span>}
         {p.stock <= 0 && <span className="sf-badge out">Agotado</span>}
       </a>
       <a href={'#/tienda/producto/' + p.slug} className="sf-card-title">{p.title}</a>
-      <div className="sf-price">{money(p.price, state.settings)} {p.compareAt > p.price && <s>{money(p.compareAt, state.settings)}</s>}</div>
+      {tier ? (
+        <div className="sf-price">{money(tier.price, state.settings)} <s>{money(p.price, state.settings)}</s>
+          <div className="sf-tier-hint">Lleva {tier.discount.tiers[tier.discount.tiers.length - 1].qty}+ y paga {tier.best}% menos</div></div>
+      ) : (
+        <div className="sf-price">{money(p.price, state.settings)} {showCompare && <s>{money(p.compareAt, state.settings)}</s>}</div>
+      )}
+      {p.stock > 0 && p.stock < 10 && <div className="sf-stock-hint">¡Quedan {p.stock}!</div>}
       <button className="sf-btn sm" disabled={p.stock <= 0} onClick={() => shop.add(p)}>{p.stock <= 0 ? 'Agotado' : 'Agregar'}</button>
     </div>
   );
@@ -295,8 +308,113 @@ function CommunityCode({ s }) {
   return <Framed><CodeFrame code={c || {}} theme={state.theme} height={s.height || c?.height} blocked={blocked} /></Framed>;
 }
 
+// ---------- Secciones de landing ----------
+// Preventa escalonada: lee el descuento REAL (escalones y fecha de fin) y desaparece sola al vencer,
+// así no queda una promo vieja en la página (lo que en Shopify había que quitar a mano).
+function TierPromo({ s }) {
+  const { state } = useStore();
+  const { editing } = useContext(EditCtx);
+  const d = liveTierDiscounts(state)[0];
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
+  if (!d) {
+    if (editing) return <div className="sf-wrap"><div className="sf-img-ph" style={{ minHeight: 120 }}>No hay un descuento escalonado vivo: en la tienda esta sección {s.whenOff === 'ocultar' ? 'no se muestra' : 'muestra un aviso'}. Créalo en Descuentos.</div></div>;
+    return s.whenOff === 'ocultar' ? null : <div className="sf-wrap center"><p className="sf-muted">La preventa terminó. ¡Gracias por participar!</p></div>;
+  }
+  const left = Math.max(0, new Date(d.endsAt).getTime() - now);
+  const parts = [[Math.floor(left / 864e5), 'días'], [Math.floor(left / 36e5) % 24, 'h'], [Math.floor(left / 6e4) % 60, 'min'], [Math.floor(left / 1e3) % 60, 's']];
+  return (
+    <div className="sf-wrap center">
+      <T k="eyebrow" as="p" className="sf-eyebrow" />
+      <T k="title" as="h2" className="sf-h2" />
+      <T k="text" as="p" className="sf-lead" />
+      <div className="sf-promo-tiers">{d.tiers.map((t, i) => <div key={t.qty} className={'sf-promo-tier lvl-' + (i + 1)}><b>{t.pct}%</b><span>{i === d.tiers.length - 1 ? `${t.qty} o más` : `${t.qty} ${t.qty === 1 ? 'unidad' : 'unidades'}`}</span></div>)}</div>
+      <div className="sf-count small">{parts.map(([v, l]) => <div key={l}><b>{String(v).padStart(2, '0')}</b><span>{l}</span></div>)}</div>
+      <Btn k="button" linkKey="link" />
+    </div>
+  );
+}
+
+function Pyramid({ s }) {
+  return (
+    <div className="sf-wrap sf-narrow center">
+      <T k="eyebrow" as="p" className="sf-eyebrow" />
+      <T k="title" as="h2" className="sf-h2" />
+      <div className="sf-pyramid">
+        {(s.items || []).map((it, i) => (
+          <div key={i} className="sf-pyr-level" style={{ '--w': `${100 - i * 14}%` }}>
+            <T path={['items', i, 'level']} className="sf-pyr-k" />
+            <div className="sf-pyr-notes">{(it.notes || '').split(',').map(n => n.trim()).filter(Boolean).map(n => <span key={n}>{n}</span>)}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Steps({ s }) {
+  return (
+    <div className="sf-wrap">
+      <T k="title" as="h2" className="sf-h2 center" />
+      <ol className="sf-steps">{(s.items || []).map((it, i) => <li key={i}><span className="sf-step-n">{i + 1}</span><T path={['items', i, 'title']} as="h3" /><T path={['items', i, 'text']} as="p" className="sf-muted" /></li>)}</ol>
+    </div>
+  );
+}
+
+function StoreCard({ s }) {
+  return (
+    <div className="sf-wrap">
+      <div className="sf-store">
+        <Img src={s.image} className="sf-store-img" />
+        <div className="sf-store-txt">
+          <p className="sf-eyebrow">Visítanos</p>
+          <T k="title" as="h2" className="sf-h2" />
+          <T k="address" as="p" />
+          <T k="hours" as="p" className="sf-store-hours" />
+          <div className="sf-row">
+            {s.phone && <a className="sf-btn light" href={`https://wa.me/${String(s.phone).replace(/\D/g, '')}`} target="_blank" rel="noreferrer">Escribir por WhatsApp</a>}
+            {s.map && <a className="sf-btn ghost" href={s.map} target="_blank" rel="noreferrer">Cómo llegar</a>}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FaqCats({ s }) {
+  const cats = [...new Set((s.items || []).map(i => i.cat || 'General'))];
+  return (
+    <div className="sf-wrap sf-narrow">
+      <T k="title" as="h2" className="sf-h2 center" />
+      <T k="subtitle" as="p" className="sf-muted center" />
+      {cats.map(c => (
+        <div key={c} className="sf-faq-cat">
+          <h3>{c}</h3>
+          {(s.items || []).map((it, i) => ((it.cat || 'General') === c ? (
+            <details key={i} className="sf-faq-d"><summary><T path={['items', i, 'q']} /></summary><T path={['items', i, 'a']} as="p" className="sf-muted" /></details>
+          ) : null))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function GameEmbed({ s }) {
+  const { state } = useStore();
+  const { editing } = useContext(EditCtx);
+  const [k, setK] = useState(0);
+  const g = (state.games || []).find(x => x.id === s.gameId);
+  if (!g) return <div className="sf-wrap"><div className="sf-img-ph" style={{ minHeight: 120 }}>Elige un juego en el panel derecho.</div></div>;
+  return (
+    <div className="sf-wrap center">
+      {s.title && <T k="title" as="h2" className="sf-h2" />}
+      <div className="sf-game-inline">{editing ? <div className="sf-img-ph" style={{ minHeight: 160 }}>🎡 {g.name}: en la tienda se juega aquí mismo.</div> : <GamePlayer key={k} game={g} onClose={() => setK(k + 1)} />}</div>
+    </div>
+  );
+}
+
 // ---------- Registro ----------
-// Campos: text, textarea, image, color, select, number, range, toggle, link, items, code.
+// Campos: text, textarea, image, color, select, number, range, toggle, link, items, code, game.
 export const STYLE_FIELDS = [
   { key: '_bg', label: 'Fondo', type: 'color' },
   { key: '_color', label: 'Color de texto', type: 'color' },
@@ -370,10 +488,42 @@ export const SECTIONS = {
     fields: [{ key: 'height', label: 'Alto mínimo (px)', type: 'range', min: 80, max: 900 }],
     defaults: { codeId: null, height: null },
   },
+  // ---- Secciones de landing (de las piezas a medida de Devier y POP KIDS) ----
+  'tier-promo': {
+    name: 'Preventa escalonada (en vivo)', cat: 'Marketing', C: TierPromo,
+    fields: [{ key: 'eyebrow', label: 'Antetítulo', type: 'text' }, { key: 'title', label: 'Título', type: 'text' }, { key: 'text', label: 'Texto', type: 'textarea' }, { key: 'button', label: 'Botón', type: 'text' }, { key: 'link', label: 'Enlace', type: 'link' }, { key: 'whenOff', label: 'Cuando la promo termina', type: 'select', options: ['ocultar', 'mostrar aviso'] }],
+    defaults: { eyebrow: 'Preventa', title: 'Entre más llevas, más ahorras', text: 'El descuento sube con cada unidad y se aplica a todos los productos de la promo.', button: 'Armar mi pedido', link: '#/tienda/coleccion/cafes', whenOff: 'ocultar' },
+  },
+  pyramid: {
+    name: 'Pirámide de notas', cat: 'Contenido', C: Pyramid,
+    fields: [{ key: 'eyebrow', label: 'Antetítulo', type: 'text' }, { key: 'title', label: 'Título', type: 'text' }, { key: 'items', label: 'Niveles', type: 'items', sub: [{ key: 'level', label: 'Nivel' }, { key: 'notes', label: 'Notas (separadas por coma)' }], blank: { level: 'Nivel', notes: 'Nota 1, Nota 2' } }],
+    defaults: { eyebrow: 'Perfil de taza', title: 'Lo que vas a sentir', items: [{ level: 'Al oler', notes: 'Panela, flores blancas' }, { level: 'En boca', notes: 'Durazno, caramelo, cacao' }, { level: 'Al final', notes: 'Chocolate amargo, nuez' }] },
+  },
+  steps: {
+    name: 'Pasos / proceso', cat: 'Contenido', C: Steps,
+    fields: [{ key: 'title', label: 'Título', type: 'text' }, { key: 'items', label: 'Pasos', type: 'items', sub: [{ key: 'title', label: 'Paso' }, { key: 'text', label: 'Detalle' }], blank: { title: 'Nuevo paso', text: 'Descripción' } }],
+    defaults: { title: 'Así llega a tu casa', items: [{ title: 'Lo tostamos el lunes', text: 'En lotes pequeños, para cada pedido de la semana.' }, { title: 'Lo empacamos al vacío', text: 'Con válvula para que respire sin perder aroma.' }, { title: 'Te llega en 24-48 h', text: 'Y te avisamos por WhatsApp cuando sale.' }] },
+  },
+  'store-card': {
+    name: 'Tienda física', cat: 'Confianza', C: StoreCard,
+    fields: [{ key: 'image', label: 'Foto', type: 'image' }, { key: 'title', label: 'Nombre', type: 'text' }, { key: 'address', label: 'Dirección', type: 'text' }, { key: 'hours', label: 'Horario', type: 'textarea' }, { key: 'phone', label: 'WhatsApp (solo números)', type: 'text' }, { key: 'map', label: 'Enlace de Google Maps', type: 'text' }],
+    defaults: { image: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1000&h=800&fit=crop&auto=format&q=75', title: 'Tostadora Aurora · Medellín', address: 'Cra 43 # 10-21, El Poblado', hours: 'Lunes a sábado · 8:00 a. m. – 7:00 p. m.\nDomingo · 10:00 a. m. – 4:00 p. m.', phone: '573000000000', map: 'https://maps.google.com' },
+  },
+  'faq-cats': {
+    name: 'Preguntas por categoría', cat: 'Confianza', C: FaqCats,
+    fields: [{ key: 'title', label: 'Título', type: 'text' }, { key: 'subtitle', label: 'Subtítulo', type: 'text' }, { key: 'items', label: 'Preguntas', type: 'items', sub: [{ key: 'cat', label: 'Categoría' }, { key: 'q', label: 'Pregunta' }, { key: 'a', label: 'Respuesta' }], blank: { cat: 'General', q: '¿Nueva pregunta?', a: 'Respuesta.' } }],
+    defaults: { title: 'Preguntas frecuentes', subtitle: 'Si no encuentras tu respuesta, escríbenos por el chat.', items: [{ cat: 'Pedidos', q: '¿Cómo hago un pedido?', a: 'En la tienda o por el chat: te lo armamos ahí mismo.' }, { cat: 'Pedidos', q: '¿Puedo pagar contra entrega?', a: 'Sí, en la mayoría del país, en pedidos de hasta $400.000.' }, { cat: 'Envíos', q: '¿Cuánto cuesta el envío?', a: 'Depende del departamento. Lo ves exacto en el checkout y es gratis desde $150.000.' }, { cat: 'Cambios', q: '¿Puedo devolver un producto?', a: 'Sí, si está sin abrir, dentro de 30 días.' }] },
+  },
+  'game-embed': {
+    name: 'Juego con premio (en la página)', cat: 'Marketing', C: GameEmbed,
+    fields: [{ key: 'gameId', label: 'Juego', type: 'game' }, { key: 'title', label: 'Título de la sección', type: 'text' }],
+    defaults: { gameId: 'g1', title: '' },
+  },
 };
 
 // Plantillas de página completas: un clic y tienes la página armada.
 export const PAGE_TEMPLATES = [
+  { id: 'launch', name: 'Lanzamiento con preventa', sections: ['announcement', 'header', 'hero', 'tier-promo', 'pyramid', 'steps', 'featured', 'faq-cats', 'footer'] },
   { id: 'blank', name: 'En blanco', sections: ['header', 'rich-text', 'footer'] },
   { id: 'landing', name: 'Landing de producto', sections: ['announcement', 'header', 'hero', 'features', 'featured', 'testimonials', 'faq', 'cta', 'footer'] },
   { id: 'promo', name: 'Promoción con cuenta regresiva', sections: ['announcement', 'header', 'hero', 'countdown', 'featured', 'newsletter', 'footer'] },

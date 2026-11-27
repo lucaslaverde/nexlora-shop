@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Home, ShoppingBag, Tag, Users, Megaphone, Percent, FileText, BarChart3, Store, Puzzle, Settings, Search, ExternalLink, Bot, Bell, Code2 } from 'lucide-react';
+import { Home, ShoppingBag, Tag, Users, Megaphone, Percent, FileText, BarChart3, Store, Puzzle, Settings, Search, ExternalLink, Bot, Bell, Code2, MessagesSquare, KanbanSquare, Zap, Gift } from 'lucide-react';
 import { useStore } from './store.jsx';
 import Storefront from './storefront/Storefront.jsx';
 import Editor from './editor/Editor.jsx';
@@ -15,6 +15,11 @@ import OnlineStore from './admin/OnlineStore.jsx';
 import Apps from './admin/Apps.jsx';
 import SettingsPage from './admin/Settings.jsx';
 import Community from './admin/Community.jsx';
+import Inbox from './admin/Inbox.jsx';
+import Pipelines from './admin/Pipelines.jsx';
+import Automations from './admin/Automations.jsx';
+import Games from './admin/Games.jsx';
+import Assistant from './admin/Assistant.jsx';
 
 export function useHash() {
   const [h, setH] = useState(() => location.hash.slice(1) || '/');
@@ -27,12 +32,19 @@ const NAV = [
   { to: '/pedidos', label: 'Pedidos', icon: ShoppingBag, badge: 'orders' },
   { to: '/productos', label: 'Productos', icon: Tag },
   { to: '/clientes', label: 'Clientes', icon: Users },
-  { to: '/marketing', label: 'Marketing', icon: Megaphone },
   { to: '/descuentos', label: 'Descuentos', icon: Percent },
+  { to: '/analiticas', label: 'Medición', icon: BarChart3 },
+  { sep: 'CRM y ventas por chat' },
+  { to: '/conversaciones', label: 'Conversaciones', icon: MessagesSquare, badge: 'chats' },
+  { to: '/pipelines', label: 'Pipelines y tareas', icon: KanbanSquare, badge: 'tasks' },
+  { to: '/automatizaciones', label: 'Automatizaciones', icon: Zap },
+  { sep: 'Marketing' },
+  { to: '/juegos', label: 'Juegos y premios', icon: Gift },
+  { to: '/marketing', label: 'Campañas', icon: Megaphone },
   { to: '/contenido', label: 'Contenido', icon: FileText },
-  { to: '/analiticas', label: 'Analíticas', icon: BarChart3 },
   { sep: 'Canales de venta' },
   { to: '/tienda-online', label: 'Tienda online', icon: Store },
+  { to: '/asistente', label: 'Asistente de chat', icon: Bot },
   { sep: 'Más' },
   { to: '/comunidad', label: 'Comunidad de código', icon: Code2, badge: 'community' },
   { to: '/apps', label: 'Apps e integraciones', icon: Puzzle },
@@ -53,6 +65,8 @@ function AdminShell({ path }) {
   const seg = path.split('/').filter(Boolean);
   const pending = state.orders.filter(o => o.fulfillment === 'sin preparar').length;
   const review = (state.community || []).filter(c => c.status === 'pendiente').length;
+  const chats = (state.conversations || []).filter(c => c.unread > 0 || c.messages.some(m => m.from === 'sugerencia')).length;
+  const tasks = (state.tasks || []).filter(t => !t.done).length;
   useEffect(() => setMenu(false), [path]);
 
   let page;
@@ -68,6 +82,11 @@ function AdminShell({ path }) {
     case 'tienda-online': page = <OnlineStore sub={seg[1]} />; break;
     case 'apps': page = <Apps />; break;
     case 'comunidad': page = <Community sub={seg[1]} />; break;
+    case 'conversaciones': page = <Inbox id={seg[1]} />; break;
+    case 'pipelines': page = <Pipelines sub={seg[1]} />; break;
+    case 'automatizaciones': page = <Automations sub={seg[1]} />; break;
+    case 'juegos': page = <Games id={seg[1]} />; break;
+    case 'asistente': page = <Assistant />; break;
     case 'configuracion': page = <SettingsPage tab={seg[1] || 'general'} />; break;
     default: page = <Dashboard />;
   }
@@ -81,7 +100,7 @@ function AdminShell({ path }) {
         <GlobalSearch />
         <div className="row top-actions">
           <a className="icon-btn" href="#/tienda" target="_blank" rel="noreferrer" title="Ver tienda"><ExternalLink size={18} /></a>
-          <button className="icon-btn" title="Asistente IA (próximamente)" onClick={() => alert('El asistente IA se conecta más adelante desde Apps e integraciones.')}><Bot size={18} /></button>
+          <a className="icon-btn" title="Asistente de chat" href="#/asistente"><Bot size={18} /></a>
           <button className="icon-btn" title="Notificaciones"><Bell size={18} />{pending > 0 && <i className="dot" />}</button>
           <div className="avatar">{state.settings.storeName.slice(0, 2).toUpperCase()}</div>
         </div>
@@ -90,7 +109,7 @@ function AdminShell({ path }) {
         <div className="store-pill"><b>{state.settings.storeName}</b><span>Plan Pro · prueba</span></div>
         <nav>
           {NAV.map((n, i) => n.sep ? <div key={i} className="nav-sep">{n.sep}</div> : (
-            <a key={n.to} href={'#' + n.to} className={active(n.to) ? 'on' : ''}><n.icon size={18} />{n.label}{n.badge === 'orders' && pending > 0 && <em>{pending}</em>}{n.badge === 'community' && review > 0 && <em>{review}</em>}</a>
+            <a key={n.to} href={'#' + n.to} className={active(n.to) ? 'on' : ''}><n.icon size={18} />{n.label}{n.badge === 'orders' && pending > 0 && <em>{pending}</em>}{n.badge === 'community' && review > 0 && <em>{review}</em>}{n.badge === 'chats' && chats > 0 && <em>{chats}</em>}{n.badge === 'tasks' && tasks > 0 && <em>{tasks}</em>}</a>
           ))}
         </nav>
         <a href="#/configuracion" className={'nav-bottom' + (active('/configuracion') ? ' on' : '')}><Settings size={18} />Configuración</a>

@@ -283,6 +283,7 @@ function FieldInput({ f, value, onChange }) {
       return <div className="img-field">{value ? <img src={value} alt="" /> : <div className="img-ph">Sin imagen</div>}<input className="input" value={value || ''} placeholder="URL de la imagen" onChange={e => onChange(e.target.value)} /><div className="img-pick">{imgs.map(u => <button key={u} onClick={() => onChange(u)}><img src={u} alt="" /></button>)}</div></div>;
     }
     case 'code': return <textarea className="input code" rows={8} spellCheck={false} value={value || ''} onChange={e => onChange(e.target.value)} />;
+    case 'game': return <><select className="input" value={value || ''} onChange={e => onChange(e.target.value)}>{(state.games || []).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select><a className="link sm" href={'#/juegos/' + value} target="_blank" rel="noreferrer">Editar el juego →</a></>;
     default: return <input className="input" value={value || ''} onChange={e => onChange(e.target.value)} />;
   }
 }
