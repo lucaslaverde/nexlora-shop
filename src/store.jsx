@@ -3,7 +3,8 @@ import * as seed from './seed.js';
 import * as s2 from './seed2.js';
 import { runDue } from './crm/engine.js';
 
-const KEY = 'nexlora-shop-v1';
+// v3: datos de prueba de la fase 3 (la demo arranca completa aunque el navegador tenga datos viejos).
+const KEY = 'nexlora-shop-v3';
 
 export function initialState() {
   const pages = [...seed.seedPages, s2.seedLaunchPage].map(p => ({
